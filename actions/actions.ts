@@ -118,7 +118,7 @@ export async function editProject(
       const childTasks = await db
         .select()
         .from(tasks)
-        .where(eq(tasks.parentTaskId, 1));
+        .where(eq(tasks.name, "None (Start of project)"));
       childTasks.forEach((task) =>
         setStartDateRecursively(task.id, project.startDate)
       );

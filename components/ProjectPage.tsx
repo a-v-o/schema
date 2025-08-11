@@ -320,7 +320,7 @@ export default function ProjectPage({
             </TableHeader>
             <TableBody>
               {tasksArray?.map((task) => {
-                return task.id === 1 ? null : (
+                return task.name === "None (Start of project)" ? null : (
                   <TableRow key={task.id}>
                     <TableCell>{task.name}</TableCell>
                     <TableCell>{task.description}</TableCell>
