@@ -25,7 +25,6 @@ export const users = mysqlTable("users", {
   name: varchar({ length: 255 }).notNull(),
   email: varchar({ length: 255 }).notNull().unique(),
   password: varchar({ length: 255 }).notNull(),
-  role: varchar({ length: 50 }), // e.g. admin, manager, worker
 });
 
 export const tasks = mysqlTable("tasks", {

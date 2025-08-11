@@ -24,7 +24,7 @@ const initialState = {
 export default function LoginForm() {
   const [state, formAction, pending] = useActionState(login, initialState);
   return (
-    <div className="w-full p-8 flex flex-col gap-6">
+    <div className="w-full md:p-8 flex flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>

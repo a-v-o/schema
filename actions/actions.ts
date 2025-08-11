@@ -341,7 +341,6 @@ export async function signUp(
     name: z.string(),
     email: z.email(),
     password: z.string(),
-    role: z.string(),
   });
 
   const UserRequired = User.required();
@@ -350,7 +349,6 @@ export async function signUp(
     name: formdata.get("name"),
     email: formdata.get("email"),
     password: formdata.get("password"),
-    role: formdata.get("role"),
   };
 
   const validatedFields = UserRequired.safeParse(rawFormData);
@@ -375,7 +373,6 @@ export async function signUp(
       name: user.name,
       email: user.email,
       password: hashedPassword,
-      role: user.role,
     });
     await createSession(user.email);
   }

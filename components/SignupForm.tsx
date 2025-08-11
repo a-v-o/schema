@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import Link from "next/link";
 
 const initialState = {
@@ -67,25 +66,13 @@ export default function SignUpForm() {
                   {state?.errors?.password}
                 </p>
               </div>
-              <Label>Role</Label>
-              <RadioGroup name="role" className="flex">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="admin" id="admin" />
-                  <Label htmlFor="admin">Admin</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="worker" id="worker" />
-                  <Label htmlFor="worker">Worker</Label>
-                </div>
-              </RadioGroup>
+              
               <div className="text-center text-sm">
                 Already have an account?{" "}
                 <Link href="/login" className="underline underline-offset-4">
                   Log in
                 </Link>
               </div>
-              <p className="text-sm text-red-600">{state?.errors?.role}</p>
             </div>
             <Button type="submit" className="w-full mt-4" pending={pending}>
               Proceed
