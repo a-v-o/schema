@@ -11,9 +11,7 @@ export default function AppLayout({
       <SidebarProvider>
         <AppSidebar />
         <SidebarTrigger className="absolute md:relative" />
-        <div className="w-full flex min-h-screen justify-start items-center px-6">
-          {children}
-        </div>
+        <div className="w-full flex justify-start px-6">{children}</div>
       </SidebarProvider>
     </section>
   );

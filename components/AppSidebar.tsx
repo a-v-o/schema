@@ -16,8 +16,8 @@ const items = [
     url: "/",
   },
   {
-    title: "New Project",
-    url: "/newProject",
+    title: "Sketch",
+    url: "/draw",
   },
 ];
 

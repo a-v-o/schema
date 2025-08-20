@@ -12,6 +12,9 @@ import {
 } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import Konva from "konva";
+import { Button } from "./ui/button";
+import { CircleIcon, LineSquiggle, RectangleHorizontal } from "lucide-react";
+import useImage from "use-image";
 
 type ShapeType = "line" | "rect" | "circle" | "group";
 
@@ -33,14 +36,21 @@ type ShapeData = {
 };
 
 export default function Draw() {
+  const [rotateImage] = useImage("/rotate-solid.svg");
   const stageRef = useRef<Konva.Stage | null>(null);
   const [shapes, setShapes] = useState<ShapeData[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [drawType, setDrawType] = useState<ShapeType>("line");
   const [newShape, setNewShape] = useState<ShapeData | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [guides, setGuides] = useState<
+    | {
+        snapPoint: number;
+        orientation: string;
+      }[]
+    | null
+  >(null);
 
-  // Start drawing a new shape
   function handleMouseDown(e: KonvaEventObject<MouseEvent>) {
     const stage = e.target.getStage();
     if (e.target == stage) {
@@ -81,7 +91,6 @@ export default function Draw() {
     }
   }
 
-  // Drawing in progress
   function handleMouseMove(e: KonvaEventObject<MouseEvent>) {
     if (!drawing || !newShape) return;
     const stage = e.target.getStage();
@@ -110,15 +119,29 @@ export default function Draw() {
     }
   }
 
-  // Finish drawing
-  function handleMouseUp() {
-    if (!drawing || !newShape) return;
-    setShapes((prev) => [...prev, newShape]);
+  function resetShape() {
     setNewShape(null);
     setDrawing(false);
   }
 
-  // Multi-select with Shift or Ctrl/Cmd, single select otherwise
+  function handleMouseUp() {
+    if (!drawing || !newShape) return;
+    if (newShape.type == "rect" && Math.abs(newShape.width!) < 1) {
+      resetShape();
+      return;
+    }
+    if (newShape.type == "circle" && Math.abs(newShape.radius!) < 1) {
+      resetShape();
+      return;
+    }
+    if (newShape.type == "line" && newShape.points![0] == newShape.points![2]) {
+      resetShape();
+      return;
+    }
+    setShapes((prev) => [...prev, newShape]);
+    resetShape();
+  }
+
   function handleSelect(id: string, evt?: MouseEvent | TouchEvent) {
     if (
       evt &&
@@ -134,14 +157,12 @@ export default function Draw() {
     }
   }
 
-  // Update shape after transform
   function handleTransform(id: string, attrs: Partial<ShapeData>) {
     setShapes((prev) =>
       prev.map((shape) => (shape.id === id ? { ...shape, ...attrs } : shape))
     );
   }
 
-  // Group selected shapes
   function handleGroup() {
     if (selectedIds.length < 2) return;
     setShapes((prev) => {
@@ -161,7 +182,6 @@ export default function Draw() {
     setSelectedIds([]);
   }
 
-  // Delete selected shape
   function handleDelete() {
     if (!selectedIds.length) return;
     setShapes((prev) =>
@@ -170,7 +190,6 @@ export default function Draw() {
     setSelectedIds([]);
   }
 
-  // Export canvas as image
   function handleExport() {
     if (!stageRef.current) return;
     const uri = stageRef.current.toDataURL();
@@ -193,7 +212,7 @@ export default function Draw() {
         handleSelect(shape.id, evt.evt),
       onMouseEnter: () => {
         const container = stageRef.current?.container();
-        if (container) container.style.cursor = "pointer";
+        if (container) container.style.cursor = "move";
       },
       onMouseLeave: () => {
         const container = stageRef.current?.container();
@@ -301,66 +320,185 @@ export default function Draw() {
     return null;
   }
 
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="flex gap-2 mb-2">
-        <button
-          className={`px-2 py-1 border rounded ${
-            drawType === "line" ? "bg-blue-200" : ""
-          }`}
-          onClick={() => setDrawType("line")}
-        >
-          Line
-        </button>
-        <button
-          className={`px-2 py-1 border rounded ${
-            drawType === "rect" ? "bg-blue-200" : ""
-          }`}
-          onClick={() => setDrawType("rect")}
-        >
-          Rectangle
-        </button>
-        <button
-          className={`px-2 py-1 border rounded ${
-            drawType === "circle" ? "bg-blue-200" : ""
-          }`}
-          onClick={() => setDrawType("circle")}
-        >
-          Circle
-        </button>
-        <button
-          className="px-2 py-1 border rounded bg-yellow-200 disabled:opacity-50"
-          onClick={handleGroup}
-          disabled={selectedIds.length < 2}
-        >
-          Group
-        </button>
+  function getSnapPoints(node: Konva.Node) {
+    const stageWidth = stageRef.current!.width();
+    const stageHeight = stageRef.current!.height();
+    const vertical = [0, stageWidth / 2, stageWidth];
+    const horizontal = [0, stageHeight / 2, stageHeight];
+    const stageItems = stageRef.current!.getChildren()[0].getChildren();
+    let guideItems = stageItems.filter((item) => {
+      return item.attrs.id != node.attrs.id;
+    });
+    if (node.getClassName() == "Transformer") {
+      const transformer = node as Konva.Transformer;
+      guideItems = guideItems.filter((item) => {
+        return transformer.nodes().includes(item) == false;
+      });
+    }
+    guideItems.forEach((guideItem) => {
+      if (guideItem.attrs.id == undefined) return;
+      const box = guideItem.getClientRect();
+      vertical.push(box.x, box.x + box.width, box.x + box.width / 2);
+      horizontal.push(box.y, box.y + box.height, box.y + box.height / 2);
+    });
+    return {
+      vertical,
+      horizontal,
+    };
+  }
 
-        <button
-          className="px-2 py-1 border rounded bg-green-200"
-          onClick={handleExport}
-        >
-          Export PNG
-        </button>
-        <button
-          className="px-2 py-1 border rounded bg-red-200 disabled:opacity-50"
-          onClick={handleDelete}
-          disabled={!selectedIds.length}
-        >
-          Delete
-        </button>
-      </div>
-      <div className="border-2">
+  function getObjectSnapTriggers(node: Konva.Node) {
+    const box = node.getClientRect();
+    const absPos = node.getAbsolutePosition();
+    return {
+      vertical: [
+        {
+          trigger: Math.round(box.x),
+          offset: Math.round(absPos.x - box.x),
+        },
+
+        {
+          trigger: Math.round(box.x + box.width / 2),
+          offset: Math.round(absPos.x - box.x - box.width / 2),
+        },
+        {
+          trigger: Math.round(box.x + box.width),
+          offset: Math.round(absPos.x - box.x - box.width),
+        },
+      ],
+      horizontal: [
+        {
+          trigger: Math.round(box.y),
+          offset: Math.round(absPos.y - box.y),
+        },
+
+        {
+          trigger: Math.round(box.y + box.height / 2),
+          offset: Math.round(absPos.y - box.y - box.height / 2),
+        },
+        {
+          trigger: Math.round(box.y + box.height),
+          offset: Math.round(absPos.y - box.y - box.height),
+        },
+      ],
+    };
+  }
+
+  function getSnapGuides(
+    snapPoints: { vertical: number[]; horizontal: number[] },
+    shapeTriggerPoints: {
+      vertical: { trigger: number; offset: number }[];
+      horizontal: { trigger: number; offset: number }[];
+    }
+  ) {
+    const guidelineOffset = 5;
+    const verticalSnapPoints: {
+      snapPoint: number;
+      diff: number;
+      offset: number;
+    }[] = [];
+    const horizontalSnapPoints: {
+      snapPoint: number;
+      diff: number;
+      offset: number;
+    }[] = [];
+
+    snapPoints.vertical.forEach((snapPoint) => {
+      shapeTriggerPoints.vertical.forEach((triggerPoint) => {
+        const diff = Math.abs(snapPoint - triggerPoint.trigger);
+        if (diff < guidelineOffset) {
+          verticalSnapPoints.push({
+            snapPoint: snapPoint,
+            diff: diff,
+            offset: triggerPoint.offset,
+          });
+        }
+      });
+    });
+
+    snapPoints.horizontal.forEach((snapPoint) => {
+      shapeTriggerPoints.horizontal.forEach((triggerPoint) => {
+        const diff = Math.abs(snapPoint - triggerPoint.trigger);
+        if (diff < guidelineOffset) {
+          horizontalSnapPoints.push({
+            snapPoint: snapPoint,
+            diff: diff,
+            offset: triggerPoint.offset,
+          });
+        }
+      });
+    });
+
+    const guides = [];
+
+    const minVertSnapPoint = verticalSnapPoints.sort(
+      (a, b) => a.diff - b.diff
+    )[0];
+    const minHorSnapPoint = horizontalSnapPoints.sort(
+      (a, b) => a.diff - b.diff
+    )[0];
+
+    if (minVertSnapPoint) {
+      guides.push({
+        snapPoint: minVertSnapPoint.snapPoint,
+        offset: minVertSnapPoint.offset,
+        orientation: "vertical",
+      });
+    }
+
+    if (minHorSnapPoint) {
+      guides.push({
+        snapPoint: minHorSnapPoint.snapPoint,
+        offset: minHorSnapPoint.offset,
+        orientation: "horizontal",
+      });
+    }
+
+    return guides;
+  }
+
+  return (
+    <div className="flex flex-col justify-end items-center h-screen pb-2">
+      <div
+        className="flex justify-center items-center absolute w-full h-[90vh] overflow-auto top-5 left-0 border-2"
+        style={{ scrollbarWidth: "none" }}
+      >
         <Stage
           ref={stageRef}
-          width={window.innerWidth / 2}
-          height={window.innerHeight / 2}
+          width={3000}
+          height={3000}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           style={{ cursor: "crosshair" }}
         >
-          <Layer>
+          <Layer
+            onDragMove={(e) => {
+              setGuides(null);
+              const snapPoints = getSnapPoints(e.target);
+              const objectTriggerPoints = getObjectSnapTriggers(e.target);
+              const guides = getSnapGuides(snapPoints, objectTriggerPoints);
+              if (!guides.length) return;
+              setGuides(guides);
+              const absPos = e.target.getAbsolutePosition();
+              guides.forEach((guide) => {
+                switch (guide.orientation) {
+                  case "vertical": {
+                    absPos.x = guide.snapPoint + guide.offset;
+                    break;
+                  }
+                  case "horizontal": {
+                    absPos.y = guide.snapPoint + guide.offset;
+                    break;
+                  }
+                }
+              });
+              e.target.absolutePosition(absPos);
+            }}
+            onDragEnd={() => {
+              setGuides(null);
+            }}
+          >
             {shapes.map((shape) => {
               return renderShape(shape);
             })}
@@ -389,7 +527,22 @@ export default function Draw() {
                 stroke={newShape.stroke}
               />
             )}
-            {/* Transformer for selected shapes */}
+            {guides?.map((guide, index) => {
+              return (
+                <Line
+                  key={index}
+                  stroke="#000"
+                  strokeWidth={1}
+                  points={
+                    guide.orientation == "horizontal"
+                      ? [-6000, 0, 6000, 0]
+                      : [0, -6000, 0, 6000]
+                  }
+                  x={guide.orientation == "horizontal" ? 0 : guide.snapPoint}
+                  y={guide.orientation == "vertical" ? 0 : guide.snapPoint}
+                />
+              );
+            })}
             {selectedIds.length > 0 && (
               <Transformer
                 enabledAnchors={(() => {
@@ -402,8 +555,24 @@ export default function Draw() {
                     }
                   }
                 })()}
-                rotationSnaps={[0, 90, 180, 270]}
-                rotationSnapTolerance={30}
+                anchorStyleFunc={(anchor) => {
+                  if (anchor.hasName("rotater")) {
+                    if (rotateImage) {
+                      anchor.fillPriority("pattern");
+                      anchor.fillPatternImage(rotateImage);
+                      anchor.strokeEnabled(false);
+                      anchor.scale({ x: 2, y: 2 });
+                      anchor.fillPatternScaleX(
+                        anchor.width() / rotateImage.width
+                      );
+                      anchor.fillPatternScaleY(
+                        anchor.height() / rotateImage.height
+                      );
+                      anchor.fillPatternRepeat("no-repeat");
+                    }
+                  }
+                }}
+                rotateAnchorCursor="move"
                 borderEnabled={false}
                 nodes={(() => {
                   const stage = stageRef.current;
@@ -419,7 +588,51 @@ export default function Draw() {
           </Layer>
         </Stage>
       </div>
-      <div className="mt-2 text-xs text-gray-500">
+      <div className="z-10 flex gap-2 w-full justify-center">
+        <Button
+          className={
+            drawType === "line"
+              ? "bg-red-500 hover:bg-red-500"
+              : "hover:bg-red-500"
+          }
+          onClick={() => setDrawType("line")}
+        >
+          <LineSquiggle />
+        </Button>
+        <Button
+          className={
+            drawType === "rect"
+              ? "bg-blue-500 hover:bg-blue-500"
+              : "hover:bg-blue-500"
+          }
+          onClick={() => setDrawType("rect")}
+        >
+          <RectangleHorizontal />
+        </Button>
+        <Button
+          className={
+            drawType === "circle"
+              ? "bg-green-500 hover:bg-green-500"
+              : "hover:bg-green-500"
+          }
+          onClick={() => setDrawType("circle")}
+        >
+          <CircleIcon />
+        </Button>
+        <Button onClick={handleGroup} disabled={selectedIds.length < 2}>
+          Group
+        </Button>
+
+        <Button onClick={handleExport}>Export PNG</Button>
+        <Button
+          variant="destructive"
+          onClick={handleDelete}
+          disabled={!selectedIds.length}
+        >
+          Delete
+        </Button>
+      </div>
+      <div className="z-10 mt-2 text-xs text-center text-gray-500">
         Click a shape to select and transform. Drag to move. Use buttons to
         switch draw mode or export.
       </div>

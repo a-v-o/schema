@@ -17,6 +17,9 @@ export const projects = mysqlTable("projects", {
   startDate: date(),
   duration: int(),
   budget: decimal({ mode: "number" }),
+  amountSpent: decimal({ mode: "number" }),
+  fixedBudget: boolean().notNull().default(false),
+  fixedDuration: boolean().notNull().default(false),
   createdBy: int({ unsigned: true }).references(() => users.id),
 });
 
@@ -36,9 +39,10 @@ export const tasks = mysqlTable("tasks", {
   description: text(),
   startDate: date(),
   duration: int().notNull().default(1),
-  status: varchar({ length: 50 }), // e.g. pending, in-progress, done
+  status: varchar({ length: 50 }).notNull().default("pending"), // e.g. pending, in-progress, done
   budget: decimal({ mode: "number" }),
   amountSpent: decimal({ mode: "number" }),
+  fixedBudget: boolean().notNull().default(false),
   parentTaskId: int({ unsigned: true }).references(
     (): AnyMySqlColumn => tasks.id
   ),

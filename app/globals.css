@@ -120,3 +120,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+.grid-header {
+  width: 100% !important;
+}
+
+.gantt-container {
+  width: 100% !important;
+  min-height: 120% !important
+}
+
+.gantt {
+  display: flex !important;
+}

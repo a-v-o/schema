@@ -5,7 +5,7 @@ import { materials, projects, tasks, users } from "@/db/schema";
 
 // import { verifySession } from "@/utils/session";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createSession, verifySession } from "@/utils/session";
 import * as z from "zod";
 
@@ -20,6 +20,8 @@ export async function createProject(
     description: z.string().min(1),
     startDate: z.date().optional(),
     duration: z.coerce.number(),
+    fixedBudget: z.boolean(),
+    fixedDuration: z.boolean(),
   });
   const session = await verifySession();
   const result = await db
@@ -33,7 +35,47 @@ export async function createProject(
     budget: formdata.get("project-budget"),
     description: formdata.get("project-description"),
     duration: formdata.get("project-duration"),
+    fixedBudget: !formdata.get("budget-checkbox"),
+    fixedDuration: !formdata.get("duration-checkbox"),
   };
+
+  if (rawFormData.fixedBudget && !rawFormData.budget) {
+    return {
+      errors: {
+        budget: [
+          "Set a fixed budget or check the box below to set it equal to the total of task budgets",
+        ],
+      },
+    };
+  }
+
+  if (!rawFormData.fixedBudget && rawFormData.budget) {
+    return {
+      errors: {
+        budget: ["You cannot set a fixed budget if you checked the box below"],
+      },
+    };
+  }
+
+  if (rawFormData.fixedDuration && !rawFormData.duration) {
+    return {
+      errors: {
+        duration: [
+          "Set a fixed duration or check the box below to set it equal to the total of task durations",
+        ],
+      },
+    };
+  }
+
+  if (!rawFormData.fixedDuration && rawFormData.duration) {
+    return {
+      errors: {
+        duration: [
+          "You cannot set a fixed duration if you checked the box below",
+        ],
+      },
+    };
+  }
 
   const validatedFields = Project.safeParse(rawFormData);
 
@@ -51,6 +93,8 @@ export async function createProject(
         duration: project.duration,
         description: project.description,
         startDate: project.startDate,
+        fixedBudget: project.fixedBudget,
+        fixedDuration: project.fixedDuration,
       })
       .$returningId();
 
@@ -78,8 +122,10 @@ export async function editProject(
     name: z.string().min(1),
     budget: z.coerce.number(),
     description: z.string().min(1),
-    startDate: z.date(),
+    startDate: z.date().optional(),
     duration: z.coerce.number(),
+    fixedBudget: z.boolean(),
+    fixedDuration: z.boolean(),
   });
   const session = await verifySession();
   const result = await db
@@ -93,7 +139,47 @@ export async function editProject(
     budget: formdata.get("project-budget"),
     description: formdata.get("project-description"),
     duration: formdata.get("project-duration"),
+    fixedBudget: !formdata.get("budget-checkbox"),
+    fixedDuration: !formdata.get("duration-checkbox"),
   };
+
+  if (rawFormData.fixedBudget && !rawFormData.budget) {
+    return {
+      errors: {
+        budget: [
+          "Set a fixed budget or check the box below to set it equal to the total of task budgets",
+        ],
+      },
+    };
+  }
+
+  if (!rawFormData.fixedBudget && rawFormData.budget) {
+    return {
+      errors: {
+        budget: ["You cannot set a fixed budget if you checked the box below"],
+      },
+    };
+  }
+
+  if (rawFormData.fixedDuration && !rawFormData.duration) {
+    return {
+      errors: {
+        duration: [
+          "Set a fixed duration or check the box below to set it equal to the total of task durations",
+        ],
+      },
+    };
+  }
+
+  if (!rawFormData.fixedDuration && rawFormData.duration) {
+    return {
+      errors: {
+        duration: [
+          "You cannot set a fixed duration if you checked the box below",
+        ],
+      },
+    };
+  }
 
   const validatedFields = Project.safeParse(rawFormData);
 
@@ -102,26 +188,109 @@ export async function editProject(
     return { errors: errors.fieldErrors };
   } else {
     const project = validatedFields.data;
+    let budget = project.budget;
+    let duration = project.duration;
+
+    if (!project.fixedBudget) {
+      const budgets = await db
+        .select({ budget: tasks.budget })
+        .from(tasks)
+        .where(eq(tasks.projectId, id));
+      const budgetAmounts = budgets.map((budget) => {
+        return budget.budget;
+      });
+      budget =
+        budgetAmounts.reduce((total, current) => {
+          return (total || 0) + (current || 0);
+        }, 0) || 0;
+    }
+
+    if (project.budget > 0) {
+      const budgets = await db
+        .select({ budget: tasks.budget })
+        .from(tasks)
+        .where(eq(tasks.projectId, id));
+      const budgetAmounts = budgets.map((budget) => {
+        return budget.budget;
+      });
+      const totalBudgetAmount =
+        budgetAmounts.reduce((total, current) => {
+          return (total || 0) + (current || 0);
+        }, 0) || 0;
+      if (project.budget < totalBudgetAmount) {
+        return {
+          errors: {
+            budget: [
+              "Budget set is less than total budget of tasks. Please edit tasks or set a higher amount",
+            ],
+          },
+        };
+      }
+    }
+
+    if (!project.fixedDuration) {
+      const durations = await db
+        .select({ duration: tasks.duration })
+        .from(tasks)
+        .where(eq(tasks.projectId, id));
+      const durationAmounts = durations.map((duration) => {
+        return duration.duration;
+      });
+      duration =
+        durationAmounts.reduce((total, current) => {
+          return (total || 0) + (current || 0);
+        }, 0) || 0;
+    }
+
+    if (project.duration > 0) {
+      const durations = await db
+        .select({ duration: tasks.duration })
+        .from(tasks)
+        .where(eq(tasks.projectId, id));
+      const durationAmounts = durations.map((duration) => {
+        return duration.duration;
+      });
+      const totalDurationAmount =
+        durationAmounts.reduce((total, current) => {
+          return (total || 0) + (current || 0);
+        }, 0) || 0;
+      if (project.duration < totalDurationAmount) {
+        return {
+          errors: {
+            duration: [
+              "Duration set is less than total duration of tasks. Please edit tasks or set a higher duration",
+            ],
+          },
+        };
+      }
+    }
+
     await db
       .update(projects)
       .set({
         name: project.name,
-        budget: project.budget,
+        budget: budget,
         createdBy: result[0].id,
-        duration: project.duration,
+        duration: duration,
         description: project.description,
         startDate: project.startDate,
+        fixedBudget: project.fixedBudget,
+        fixedDuration: project.fixedDuration,
       })
       .where(eq(projects.id, id));
 
-    if (project.startDate) {
-      const childTasks = await db
+    if (project.startDate != undefined) {
+      const bufferTasks = await db
         .select()
         .from(tasks)
-        .where(eq(tasks.name, "None (Start of project)"));
-      childTasks.forEach((task) =>
-        setStartDateRecursively(task.id, project.startDate)
-      );
+        .where(
+          and(
+            eq(tasks.name, "None (Start of project)"),
+            eq(tasks.projectId, id)
+          )
+        );
+
+      setStartDateRecursively(bufferTasks[0].id, project.startDate!);
     }
     redirect(`/project/${id}`);
   }
@@ -145,6 +314,7 @@ export async function createTask(
     budget: z.coerce.number(),
     parent: z.coerce.number(),
     startDate: z.date().optional(),
+    fixedBudget: z.boolean(),
   });
 
   const rawFormData = {
@@ -154,7 +324,26 @@ export async function createTask(
     duration: formdata.get("task-duration"),
     parent: formdata.get("task-parent"),
     startDate: date,
+    fixedBudget: !formdata.get("budget-checkbox"),
   };
+
+  if (rawFormData.fixedBudget && !rawFormData.budget) {
+    return {
+      errors: {
+        budget: [
+          "Set a fixed budget or check the box below to set it equal to the total of material budgets",
+        ],
+      },
+    };
+  }
+
+  if (!rawFormData.fixedBudget && rawFormData.budget) {
+    return {
+      errors: {
+        budget: ["You cannot set a fixed budget if you checked the box below"],
+      },
+    };
+  }
 
   if (!date && !rawFormData.parent) {
     return {
@@ -189,9 +378,83 @@ export async function createTask(
         .where(eq(tasks.id, task.parent));
       if (parentTask[0].startDate) {
         const newDate = parentTask[0].startDate;
-        newDate?.setDate(newDate.getDate() + parentTask[0].duration);
+        newDate?.setDate(newDate.getDate() + parentTask[0].duration * 7 + 1);
         startDate = newDate;
       }
+    }
+
+    if (task.budget > 0) {
+      const projectBudgetIsFixed = result[0].fixedBudget;
+      const projectBudget = result[0].budget;
+
+      const budgets = await db
+        .select({ budget: tasks.budget })
+        .from(tasks)
+        .where(eq(tasks.projectId, result[0].id));
+
+      const totalBudget =
+        budgets
+          .map((budget) => {
+            return budget.budget;
+          })
+          .reduce((total, current) => {
+            return (total || 0) + (current || 0);
+          }, 0) || 0;
+
+      if (projectBudgetIsFixed && task.budget + totalBudget > projectBudget!) {
+        return {
+          errors: {
+            budget: [
+              "Budget set makes entire budget higher than total budget of the project. Set a lower amount or edit project budget",
+            ],
+          },
+        };
+      }
+      if (!projectBudgetIsFixed) {
+        await db
+          .update(projects)
+          .set({
+            budget: (projectBudget || 0) + task.budget,
+          })
+          .where(eq(projects.id, result[0].id));
+      }
+    }
+
+    const projectDurationIsFixed = result[0].fixedDuration;
+    const projectDuration = result[0].duration;
+    const durations = await db
+      .select({ duration: tasks.duration })
+      .from(tasks)
+      .where(eq(tasks.projectId, result[0].id));
+
+    const totalDuration =
+      durations
+        .map((duration) => {
+          return duration.duration;
+        })
+        .reduce((total, current) => {
+          return (total || 0) + (current || 0);
+        }, 0) || 0;
+
+    if (
+      projectDurationIsFixed &&
+      task.duration + totalDuration > projectDuration!
+    ) {
+      return {
+        errors: {
+          duration: [
+            "Duration set makes entire duration higher than total duration of the project. Set a lower duration or edit project duration",
+          ],
+        },
+      };
+    }
+    if (!projectDurationIsFixed) {
+      await db
+        .update(projects)
+        .set({
+          duration: (projectDuration || 0) + task.duration,
+        })
+        .where(eq(projects.id, result[0].id));
     }
 
     await db.insert(tasks).values({
@@ -202,6 +465,7 @@ export async function createTask(
       description: task.description,
       parentTaskId: task.parent,
       startDate: startDate,
+      fixedBudget: task.fixedBudget,
     });
 
     redirect(`/project/${projectId}`);
@@ -223,6 +487,7 @@ export async function editTask(
     budget: z.coerce.number(),
     parent: z.coerce.number(),
     startDate: z.date().optional(),
+    fixedBudget: z.boolean(),
   });
 
   const rawFormData = {
@@ -232,7 +497,26 @@ export async function editTask(
     duration: formdata.get("task-duration"),
     parent: formdata.get("task-parent"),
     startDate: date,
+    fixedBudget: !formdata.get("budget-checkbox"),
   };
+
+  if (rawFormData.fixedBudget && !rawFormData.budget) {
+    return {
+      errors: {
+        budget: [
+          "Set a fixed budget or check the box below to set it equal to the total of material budgets",
+        ],
+      },
+    };
+  }
+
+  if (!rawFormData.fixedBudget && rawFormData.budget) {
+    return {
+      errors: {
+        budget: ["You cannot set a fixed budget if you checked the box below"],
+      },
+    };
+  }
 
   if (!date && !rawFormData.parent) {
     return {
@@ -273,8 +557,126 @@ export async function editTask(
         .where(eq(tasks.id, task.parent));
       if (parentTask[0].startDate) {
         const newDate = parentTask[0].startDate;
-        newDate?.setDate(newDate.getDate() + parentTask[0].duration);
+        newDate?.setDate(newDate.getDate() + parentTask[0].duration * 7 + 1);
         startDate = newDate;
+      }
+
+      if (task.budget > 0) {
+        const project = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, result[0].projectId));
+        const projectBudgetIsFixed = project[0].fixedBudget;
+        const projectBudget = project[0].budget;
+
+        const budgets = await db
+          .select({ budget: tasks.budget })
+          .from(tasks)
+          .where(eq(tasks.projectId, result[0].projectId));
+
+        const totalBudget =
+          budgets
+            .map((budget) => {
+              return budget.budget;
+            })
+            .reduce((total, current) => {
+              return (total || 0) + (current || 0);
+            }, 0) || 0;
+
+        const finalBudget =
+          totalBudget == 0 ? 0 : totalBudget - (result[0].budget || 0);
+
+        if (
+          projectBudgetIsFixed &&
+          task.budget + finalBudget > projectBudget!
+        ) {
+          return {
+            errors: {
+              budget: [
+                "Budget set makes entire budget higher than total budget of the project. Set a lower amount or edit project budget",
+              ],
+            },
+          };
+        }
+        if (!projectBudgetIsFixed) {
+          await db
+            .update(projects)
+            .set({
+              budget:
+                (projectBudget || 0) - (result[0].budget || 0) + task.budget,
+            })
+            .where(eq(projects.id, result[0].projectId));
+        }
+
+        const materialBudgets = await db
+          .select({ budget: materials.price })
+          .from(materials)
+          .where(eq(materials.taskId, id));
+        const totalMaterialsBudget =
+          materialBudgets
+            .map((budget) => {
+              return budget.budget;
+            })
+            .reduce((total, current) => {
+              return (total || 0) + (current || 0);
+            }, 0) || 0;
+        if (task.budget < totalMaterialsBudget) {
+          return {
+            errors: {
+              budget: [
+                "Budget set is less than total budget of materials. Please edit materials or set a higher amount",
+              ],
+            },
+          };
+        }
+      }
+
+      if (task.duration > 0) {
+        const project = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, result[0].projectId));
+
+        const projectDurationIsFixed = project[0].fixedDuration;
+        const projectDuration = project[0].duration;
+        const durations = await db
+          .select({ duration: tasks.duration })
+          .from(tasks)
+          .where(eq(tasks.projectId, result[0].projectId));
+
+        const totalDuration =
+          durations
+            .map((duration) => {
+              return duration.duration;
+            })
+            .reduce((total, current) => {
+              return (total || 0) + (current || 0);
+            }, 0) - result[0].duration || 0;
+        console.log(totalDuration);
+
+        if (
+          projectDurationIsFixed &&
+          task.duration + totalDuration > projectDuration!
+        ) {
+          return {
+            errors: {
+              duration: [
+                "Duration set makes entire duration higher than total duration of the project. Set a lower duration or edit project duration",
+              ],
+            },
+          };
+        }
+        if (!projectDurationIsFixed) {
+          await db
+            .update(projects)
+            .set({
+              duration:
+                (projectDuration || 0) -
+                (result[0].duration || 0) +
+                task.duration,
+            })
+            .where(eq(projects.id, result[0].projectId));
+        }
       }
     }
 
@@ -287,6 +689,7 @@ export async function editTask(
         description: task.description,
         parentTaskId: task.parent,
         startDate: startDate,
+        fixedBudget: task.fixedBudget,
       })
       .where(eq(tasks.id, id));
 
@@ -383,6 +786,8 @@ export async function addMaterial(
   prevState: Record<string, Record<string, string[]>> | undefined,
   formdata: FormData
 ) {
+  const result = await db.select().from(tasks).where(eq(tasks.id, taskId));
+
   const Material = z.object({
     name: z.string().min(1),
     description: z.string(),
@@ -406,6 +811,44 @@ export async function addMaterial(
     return { errors: errors.fieldErrors };
   } else {
     const material = validatedFields.data;
+
+    if (material.price > 0) {
+      const taskBudgetIsFixed = result[0].fixedBudget;
+      const taskBudget = result[0].budget;
+
+      const budgets = await db
+        .select({ budget: materials.price })
+        .from(materials)
+        .where(eq(materials.taskId, result[0].id));
+
+      const totalBudget =
+        budgets
+          .map((budget) => {
+            return budget.budget;
+          })
+          .reduce((total, current) => {
+            return (total || 0) + (current || 0);
+          }, 0) || 0;
+
+      if (taskBudgetIsFixed && material.price + totalBudget > taskBudget!) {
+        return {
+          errors: {
+            price: [
+              "Budget set makes entire budget higher than total budget of the project. Set a lower amount or edit project budget",
+            ],
+          },
+        };
+      }
+      if (!taskBudgetIsFixed) {
+        await db
+          .update(tasks)
+          .set({
+            budget: (taskBudget || 0) + material.price,
+          })
+          .where(eq(tasks.id, result[0].id));
+      }
+    }
+
     await db.insert(materials).values({
       name: material.name,
       price: material.price,
@@ -416,5 +859,89 @@ export async function addMaterial(
     });
 
     redirect(`/task/${taskId}`);
+  }
+}
+
+export async function editMaterial(
+  id: number,
+  prevState: Record<string, Record<string, string[]>> | undefined,
+  formdata: FormData
+) {
+  const result = await db.select().from(materials).where(eq(materials.id, id));
+  const task = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.id, result[0].taskId));
+  const Material = z.object({
+    name: z.string().min(1),
+    description: z.string(),
+    unit: z.string().min(1),
+    price: z.coerce.number().min(1),
+    quantity: z.coerce.number().min(1),
+  });
+
+  const rawFormData = {
+    name: formdata.get("material"),
+    price: formdata.get("price"),
+    quantity: formdata.get("quantity"),
+    description: formdata.get("description"),
+    unit: formdata.get("unit"),
+  };
+
+  const validatedFields = Material.safeParse(rawFormData);
+
+  if (!validatedFields.success) {
+    const errors = z.flattenError(validatedFields.error);
+    return { errors: errors.fieldErrors };
+  } else {
+    const material = validatedFields.data;
+    if (material.price > 0) {
+      const taskBudgetIsFixed = task[0].fixedBudget;
+      const taskBudget = task[0].budget;
+
+      const budgets = await db
+        .select({ budget: materials.price })
+        .from(materials)
+        .where(eq(materials.taskId, task[0].id));
+
+      const totalBudget =
+        budgets
+          .map((budget) => {
+            return budget.budget;
+          })
+          .reduce((total, current) => {
+            return (total || 0) + (current || 0);
+          }, 0) - material.price || 0;
+
+      if (taskBudgetIsFixed && material.price + totalBudget > taskBudget!) {
+        return {
+          errors: {
+            price: [
+              "Budget set makes entire budget higher than total budget of the project. Set a lower amount or edit project budget",
+            ],
+          },
+        };
+      }
+      if (!taskBudgetIsFixed) {
+        await db
+          .update(tasks)
+          .set({
+            budget: (taskBudget || 0) + material.price,
+          })
+          .where(eq(tasks.id, task[0].id));
+      }
+    }
+    await db
+      .update(materials)
+      .set({
+        name: material.name,
+        price: material.price,
+        description: material.description,
+        quantity: material.quantity,
+        unit: material.unit,
+      })
+      .where(eq(materials.id, id));
+
+    redirect(`/task/${task[0].id}`);
   }
 }

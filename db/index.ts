@@ -33,6 +33,15 @@ export async function getProject(id: number) {
   return projectResult[0];
 }
 
+export async function setProjectOngoing(id: number, ongoing: boolean) {
+  await db
+    .update(projects)
+    .set({
+      isOngoing: ongoing,
+    })
+    .where(eq(projects.id, id));
+}
+
 export async function getTasks(id: number) {
   const tasksResult = await db
     .select()
@@ -67,10 +76,39 @@ export async function setStartDateRecursively(id: number, date: Date) {
     .from(tasks)
     .where(eq(tasks.parentTaskId, id));
   if (childTasks.length > 0) {
-    childTasks.forEach((task) => {
-      const date = parentTask[0].startDate;
-      date?.setDate(date.getDate() + parentTask[0].duration);
-      setStartDateRecursively(task.id, date!);
+    childTasks.forEach(async (task) => {
+      const newDate = parentTask[0].startDate;
+      newDate?.setDate(date.getDate() + parentTask[0].duration * 7 + 1);
+      await setStartDateRecursively(task.id, newDate!);
     });
   }
+}
+
+export async function getGanttChartData(projectId: number) {
+  const tasksResult = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId));
+
+  const promise = tasksResult.map(async (task) => {
+    const endDate = new Date(task.startDate!);
+    endDate.setDate(endDate.getDate() + task.duration * 7);
+
+    return {
+      id: task.id.toString(),
+      name: task.name,
+      start: task.startDate!.toISOString().slice(0, 10),
+      end: endDate.toISOString().slice(0, 10),
+      dependencies: task.parentTaskId ? task.parentTaskId.toString() : "",
+      progress: task.status == "completed" ? 100 : 0,
+    };
+  });
+
+  const result = await Promise.all(promise);
+
+  const ganttData = result.filter((task) => {
+    return task.name != "None (Start of project)";
+  });
+
+  return ganttData;
 }

@@ -10,7 +10,7 @@ export default async function Quotation({
   const project = await getProject(id);
   const tasksResult = await getTasks(id);
   const tasks = tasksResult.filter((task) => {
-    return task.id != 1;
+    return task.name != "None (Start of project)";
   });
   const promise = tasks.map(async (task) => {
     const materials = await getMaterials(task.id);
