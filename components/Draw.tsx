@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Stage,
   Layer,
@@ -15,6 +15,7 @@ import Konva from "konva";
 import { Button } from "./ui/button";
 import { CircleIcon, LineSquiggle, RectangleHorizontal } from "lucide-react";
 import useImage from "use-image";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ShapeType = "line" | "rect" | "circle" | "group";
 
@@ -38,6 +39,7 @@ type ShapeData = {
 export default function Draw() {
   const [rotateImage] = useImage("/rotate-solid.svg");
   const stageRef = useRef<Konva.Stage | null>(null);
+  const isMobile = useIsMobile();
   const [shapes, setShapes] = useState<ShapeData[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [drawType, setDrawType] = useState<ShapeType>("line");
@@ -50,6 +52,10 @@ export default function Draw() {
       }[]
     | null
   >(null);
+
+  function generateRandomInteger(min: number, max: number) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
 
   function handleMouseDown(e: KonvaEventObject<MouseEvent>) {
     const stage = e.target.getStage();
@@ -182,13 +188,13 @@ export default function Draw() {
     setSelectedIds([]);
   }
 
-  function handleDelete() {
+  const handleDelete = useCallback(() => {
     if (!selectedIds.length) return;
     setShapes((prev) =>
       prev.filter((shape) => !selectedIds.includes(shape.id))
     );
     setSelectedIds([]);
-  }
+  }, [selectedIds]);
 
   function handleExport() {
     if (!stageRef.current) return;
@@ -457,19 +463,81 @@ export default function Draw() {
     return guides;
   }
 
+  useEffect(() => {
+    stageRef.current?.container().addEventListener("keydown", (e) => {
+      e.preventDefault();
+      switch (e.key) {
+        case "ArrowUp":
+          selectedIds.forEach((id) => {
+            const node = stageRef.current
+              ?.getLayers()[0]
+              .findOne((node: Konva.Node) => {
+                return node.attrs.id == id;
+              });
+            handleTransform(id, {
+              y: node!.y() - 4,
+            });
+          });
+          break;
+        case "ArrowDown":
+          selectedIds.forEach((id) => {
+            const node = stageRef.current
+              ?.getLayers()[0]
+              .findOne((node: Konva.Node) => {
+                return node.attrs.id == id;
+              });
+            handleTransform(id, {
+              y: node!.y() + 4,
+            });
+          });
+          break;
+        case "ArrowLeft":
+          selectedIds.forEach((id) => {
+            const node = stageRef.current
+              ?.getLayers()[0]
+              .findOne((node: Konva.Node) => {
+                return node.attrs.id == id;
+              });
+            handleTransform(id, {
+              x: node!.x() - 4,
+            });
+          });
+          break;
+        case "ArrowRight":
+          selectedIds.forEach((id) => {
+            const node = stageRef.current
+              ?.getLayers()[0]
+              .findOne((node: Konva.Node) => {
+                return node.attrs.id == id;
+              });
+            handleTransform(id, {
+              x: node!.x() + 4,
+            });
+          });
+          break;
+        case "Delete":
+          handleDelete();
+          break;
+        default:
+          return;
+      }
+    });
+  }, [handleDelete, selectedIds]);
+
   return (
-    <div className="flex flex-col justify-end items-center h-screen pb-2">
+    <div className="flex flex-col justify-end items-center pb-2 draw-container">
       <div
-        className="flex justify-center items-center absolute w-full h-[90vh] overflow-auto top-5 left-0 border-2"
+        className="flex justify-start items-center absolute w-full md:w-[980px] h-[540px] top-5 left-0 border-2 overflow-hidden"
         style={{ scrollbarWidth: "none" }}
       >
         <Stage
           ref={stageRef}
-          width={3000}
-          height={3000}
+          width={980}
+          height={540}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          tabIndex={1}
           style={{ cursor: "crosshair" }}
         >
           <Layer
@@ -588,53 +656,107 @@ export default function Draw() {
           </Layer>
         </Stage>
       </div>
-      <div className="z-10 flex gap-2 w-full justify-center">
-        <Button
-          className={
-            drawType === "line"
-              ? "bg-red-500 hover:bg-red-500"
-              : "hover:bg-red-500"
-          }
-          onClick={() => setDrawType("line")}
-        >
-          <LineSquiggle />
-        </Button>
-        <Button
-          className={
-            drawType === "rect"
-              ? "bg-blue-500 hover:bg-blue-500"
-              : "hover:bg-blue-500"
-          }
-          onClick={() => setDrawType("rect")}
-        >
-          <RectangleHorizontal />
-        </Button>
-        <Button
-          className={
-            drawType === "circle"
-              ? "bg-green-500 hover:bg-green-500"
-              : "hover:bg-green-500"
-          }
-          onClick={() => setDrawType("circle")}
-        >
-          <CircleIcon />
-        </Button>
-        <Button onClick={handleGroup} disabled={selectedIds.length < 2}>
-          Group
-        </Button>
+      <div className="w-full flex flex-col gap-2">
+        <div className="z-10 flex gap-2 w-full justify-center">
+          <Button
+            className={
+              drawType === "line"
+                ? "bg-red-500 hover:bg-red-500"
+                : "hover:bg-red-500"
+            }
+            onClick={() => {
+              setDrawType("line");
+              if (isMobile) {
+                const origin = generateRandomInteger(200, 300);
+                setShapes((prev) => [
+                  ...prev,
+                  {
+                    id: `shape_${Date.now()}`,
+                    type: "line",
+                    points: [origin, 200, origin + 100, 200],
+                    stroke: "black",
+                    draggable: true,
+                  },
+                ]);
+              }
+            }}
+          >
+            <LineSquiggle />
+          </Button>
+          <Button
+            className={
+              drawType === "rect"
+                ? "bg-blue-500 hover:bg-blue-500"
+                : "hover:bg-blue-500"
+            }
+            onClick={() => {
+              setDrawType("rect");
+              if (isMobile) {
+                const origin = generateRandomInteger(200, 300);
 
-        <Button onClick={handleExport}>Export PNG</Button>
-        <Button
-          variant="destructive"
-          onClick={handleDelete}
-          disabled={!selectedIds.length}
-        >
-          Delete
-        </Button>
-      </div>
-      <div className="z-10 mt-2 text-xs text-center text-gray-500">
-        Click a shape to select and transform. Drag to move. Use buttons to
-        switch draw mode or export.
+                setShapes((prev) => [
+                  ...prev,
+                  {
+                    id: `shape_${Date.now()}`,
+                    type: "rect",
+                    x: origin,
+                    y: 200,
+                    width: 100,
+                    height: 100,
+                    stroke: "black",
+                    draggable: true,
+                  },
+                ]);
+              }
+            }}
+          >
+            <RectangleHorizontal />
+          </Button>
+          <Button
+            className={
+              drawType === "circle"
+                ? "bg-green-500 hover:bg-green-500"
+                : "hover:bg-green-500"
+            }
+            onClick={() => {
+              setDrawType("circle");
+              if (isMobile) {
+                const origin = generateRandomInteger(200, 300);
+
+                setShapes((prev) => [
+                  ...prev,
+                  {
+                    id: `shape_${Date.now()}`,
+                    type: "circle",
+                    x: origin,
+                    y: 200,
+                    radius: 50,
+                    stroke: "black",
+                    draggable: true,
+                  },
+                ]);
+              }
+            }}
+          >
+            <CircleIcon />
+          </Button>
+          <Button onClick={handleGroup} disabled={selectedIds.length < 2}>
+            Group
+          </Button>
+
+          <Button onClick={handleExport}>Export PNG</Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={!selectedIds.length}
+          >
+            Delete
+          </Button>
+        </div>
+        <div className="z-10 mt-2 text-xs text-center text-gray-500">
+          Click a shape to select and transform. Drag to move. Use buttons to
+          switch draw mode or export.
+        </div>
       </div>
     </div>
   );

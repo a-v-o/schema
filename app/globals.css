@@ -133,3 +133,7 @@
 .gantt {
   display: flex !important;
 }
+
+.draw-container {
+  height: -webkit-fill-available;
+}
