@@ -34,6 +34,7 @@
     "mongoose": "^8.17.1",
     "mysql2": "^3.14.3",
     "next": "15.4.6",
+    "nextjs-toploader": "^3.8.16",
     "react": "19.1.1",
     "react-day-picker": "^9.8.1",
     "react-dom": "19.1.1",

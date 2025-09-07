@@ -25,6 +25,24 @@ export async function getProjects() {
   return projectResult;
 }
 
+export async function getRecentProjects() {
+  const session = await verifySession();
+  const userResult = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, session.email));
+
+  if (userResult.length == 0) {
+    redirect("/signUp");
+  }
+
+  const projectResult = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.createdBy, userResult[0].id)).limit(10);
+  return projectResult;
+}
+
 export async function getProject(id: number) {
   const projectResult = await db
     .select()

@@ -13,7 +13,14 @@ import {
 import { KonvaEventObject } from "konva/lib/Node";
 import Konva from "konva";
 import { Button } from "./ui/button";
-import { CircleIcon, LineSquiggle, RectangleHorizontal } from "lucide-react";
+import {
+  CircleIcon,
+  GroupIcon,
+  LineSquiggle,
+  RectangleHorizontal,
+  Save,
+  Trash,
+} from "lucide-react";
 import useImage from "use-image";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -150,10 +157,11 @@ export default function Draw() {
 
   function handleSelect(id: string, evt?: MouseEvent | TouchEvent) {
     if (
-      evt &&
-      (("ctrlKey" in evt && evt.ctrlKey) ||
-        ("metaKey" in evt && evt.metaKey) ||
-        ("shiftKey" in evt && evt.shiftKey))
+      (evt &&
+        (("ctrlKey" in evt && evt.ctrlKey) ||
+          ("metaKey" in evt && evt.metaKey) ||
+          ("shiftKey" in evt && evt.shiftKey))) ||
+      isMobile
     ) {
       setSelectedIds((prev) =>
         prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
@@ -525,9 +533,9 @@ export default function Draw() {
   }, [handleDelete, selectedIds]);
 
   return (
-    <div className="flex flex-col justify-end items-center pb-2 draw-container">
+    <div className="flex flex-col justify-end items-center pb-8 md:pb-2 draw-container">
       <div
-        className="flex justify-start items-center absolute w-full md:w-[980px] h-[540px] top-5 left-0 border-2 overflow-hidden"
+        className="flex justify-start items-center absolute w-full md:w-[980px] h-[540px] top-5 left-0 border-black border-[2px] overflow-hidden"
         style={{ scrollbarWidth: "none" }}
       >
         <Stage
@@ -657,17 +665,16 @@ export default function Draw() {
         </Stage>
       </div>
       <div className="w-full flex flex-col gap-2">
-        <div className="z-10 flex gap-2 w-full justify-center">
+        <div className="z-10 flex gap-1 md:gap-2 w-full justify-center">
           <Button
             className={
               drawType === "line"
-                ? "bg-red-500 hover:bg-red-500"
-                : "hover:bg-red-500"
+                ? "md:bg-green-500 hover:bg-green-500"
+                : "hover:bg-green-500"
             }
             onClick={() => {
-              setDrawType("line");
               if (isMobile) {
-                const origin = generateRandomInteger(200, 300);
+                const origin = generateRandomInteger(100, 150);
                 setShapes((prev) => [
                   ...prev,
                   {
@@ -678,6 +685,8 @@ export default function Draw() {
                     draggable: true,
                   },
                 ]);
+              } else {
+                setDrawType("line");
               }
             }}
           >
@@ -686,13 +695,12 @@ export default function Draw() {
           <Button
             className={
               drawType === "rect"
-                ? "bg-blue-500 hover:bg-blue-500"
-                : "hover:bg-blue-500"
+                ? "md:bg-green-500 hover:bg-green-500"
+                : "hover:bg-green-500"
             }
             onClick={() => {
-              setDrawType("rect");
               if (isMobile) {
-                const origin = generateRandomInteger(200, 300);
+                const origin = generateRandomInteger(100, 150);
 
                 setShapes((prev) => [
                   ...prev,
@@ -707,6 +715,8 @@ export default function Draw() {
                     draggable: true,
                   },
                 ]);
+              } else {
+                setDrawType("rect");
               }
             }}
           >
@@ -715,13 +725,12 @@ export default function Draw() {
           <Button
             className={
               drawType === "circle"
-                ? "bg-green-500 hover:bg-green-500"
+                ? "md:bg-green-500 hover:bg-green-500"
                 : "hover:bg-green-500"
             }
             onClick={() => {
-              setDrawType("circle");
               if (isMobile) {
-                const origin = generateRandomInteger(200, 300);
+                const origin = generateRandomInteger(100, 150);
 
                 setShapes((prev) => [
                   ...prev,
@@ -735,22 +744,26 @@ export default function Draw() {
                     draggable: true,
                   },
                 ]);
+              } else {
+                setDrawType("circle");
               }
             }}
           >
             <CircleIcon />
           </Button>
           <Button onClick={handleGroup} disabled={selectedIds.length < 2}>
-            Group
+            <GroupIcon />
           </Button>
 
-          <Button onClick={handleExport}>Export PNG</Button>
+          <Button onClick={handleExport}>
+            <Save />
+          </Button>
           <Button
             variant="destructive"
             onClick={handleDelete}
             disabled={!selectedIds.length}
           >
-            Delete
+            <Trash />
           </Button>
         </div>
         <div className="z-10 mt-2 text-xs text-center text-gray-500">
