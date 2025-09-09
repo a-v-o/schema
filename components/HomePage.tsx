@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "./ui/table";
 import ProjectDialog from "./ProjectDialog";
+import { Delete } from "lucide-react";
 
 export default function HomePage({
   projectsArray,
@@ -53,6 +54,9 @@ export default function HomePage({
                       View more
                     </Link>
                   </TableCell>
+                  {/* <TableCell>
+                    <Delete/>
+                  </TableCell> */}
                 </TableRow>
               );
             })}

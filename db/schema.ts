@@ -34,7 +34,7 @@ export const tasks = mysqlTable("tasks", {
   id: int({ unsigned: true }).notNull().autoincrement().unique().primaryKey(),
   projectId: int({ unsigned: true })
     .notNull()
-    .references(() => projects.id),
+    .references(() => projects.id, { onDelete: "cascade" }),
   name: varchar({ length: 255 }).notNull(),
   description: text(),
   startDate: date(),
@@ -44,7 +44,7 @@ export const tasks = mysqlTable("tasks", {
   amountSpent: decimal({ mode: "number" }),
   fixedBudget: boolean().notNull().default(false),
   parentTaskId: int({ unsigned: true }).references(
-    (): AnyMySqlColumn => tasks.id
+    (): AnyMySqlColumn => tasks.id, { onDelete: "cascade" }
   ),
 });
 
@@ -57,6 +57,6 @@ export const materials = mysqlTable("materials", {
   unit: varchar({ length: 50 }).notNull(),
   taskId: int({ unsigned: true })
     .notNull()
-    .references(() => tasks.id),
+    .references(() => tasks.id, { onDelete: "cascade" }),
   cost: int(),
 });

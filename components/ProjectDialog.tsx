@@ -100,7 +100,7 @@ export default function ProjectDialog({
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="z-10">
+      <DialogContent className="z-50">
         <DialogHeader>
           <DialogTitle>
             {createAction ? "New Project" : "Edit Project"}
