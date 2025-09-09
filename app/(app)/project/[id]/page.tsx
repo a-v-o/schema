@@ -19,10 +19,8 @@ export default async function Project({
     const offset = today.getTimezoneOffset();
     today?.setMinutes(today.getMinutes() - offset);
     if (project.startDate && project.duration) {
-      const projectEnd = project.startDate;
-      projectEnd.setDate(
-        project.startDate.getDate() + (project.duration || 0) * 7
-      );
+      const projectEnd = new Date(project.startDate!);
+      projectEnd!.setDate(projectEnd.getDate() + (project.duration || 0) * 7);
       if (today > project.startDate && today < projectEnd) {
         setProjectOngoing(id, true);
       }
@@ -33,10 +31,8 @@ export default async function Project({
     const today = new Date();
     const offset = today.getTimezoneOffset();
     today?.setMinutes(today.getMinutes() - offset);
-    const projectEnd = project.startDate;
-    projectEnd!.setDate(
-      project.startDate!.getDate() + (project.duration || 0) * 7
-    );
+    const projectEnd = new Date(project.startDate!);
+    projectEnd!.setDate(projectEnd.getDate() + (project.duration || 0) * 7);
     if (today > projectEnd!) {
       setProjectOngoing(id, false);
     }

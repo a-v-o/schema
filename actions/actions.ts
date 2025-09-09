@@ -290,7 +290,7 @@ export async function editProject(
           )
         );
 
-      setStartDateRecursively(bufferTasks[0].id, project.startDate!);
+      await setStartDateRecursively(bufferTasks[0].id, project.startDate!);
     }
     redirect(`/project/${id}`);
   }
