@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/mysql2";
 import { materials, projects, tasks, users } from "./schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { verifySession } from "@/utils/session";
 import { redirect } from "next/navigation";
 
@@ -39,7 +39,8 @@ export async function getRecentProjects() {
   const projectResult = await db
     .select()
     .from(projects)
-    .where(eq(projects.createdBy, userResult[0].id)).limit(10);
+    .where(eq(projects.createdBy, userResult[0].id))
+    .limit(10);
   return projectResult;
 }
 
@@ -82,24 +83,33 @@ export async function getMaterials(id: number) {
 }
 
 export async function setStartDateRecursively(id: number, date: Date) {
-  const parentTask = await db.select().from(tasks).where(eq(tasks.id, id));
-  await db
-    .update(tasks)
-    .set({
-      startDate: date,
-    })
-    .where(eq(tasks.id, id));
-  const childTasks = await db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.parentTaskId, id));
-  if (childTasks.length > 0) {
-    childTasks.forEach(async (task) => {
-      const newDate = parentTask[0].startDate;
-      newDate?.setDate(date.getDate() + parentTask[0].duration * 7 + 1);
-      await setStartDateRecursively(task.id, newDate!);
-    });
-  }
+  const recursiveCte = sql`
+    WITH RECURSIVE tasksCte AS (
+      SELECT
+        id,
+        parentTaskId,
+        startDate,
+        duration,
+        ${date} AS newStartDate
+      FROM tasks
+      WHERE id = ${id}
+
+      UNION ALL
+
+      SELECT
+        t.id,
+        t.parentTaskId,
+        t.startDate,
+        t.duration,
+        DATE_ADD(tc.newStartDate, INTERVAL tc.duration WEEK) AS newStartDate
+      FROM tasks t
+      JOIN tasksCte tc ON t.parentTaskId = tc.id
+    )
+    UPDATE tasks
+    JOIN tasksCte ON tasks.id = tasksCte.id
+    SET tasks.startDate = tasksCte.newStartDate
+  `;
+  await db.execute(recursiveCte);
 }
 
 export async function getGanttChartData(projectId: number) {

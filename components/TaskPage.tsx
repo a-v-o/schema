@@ -1,7 +1,12 @@
 "use client";
 
 import { materials, tasks } from "@/db/schema";
-import { addMaterial, editMaterial, editTask } from "@/actions/actions";
+import {
+  addMaterial,
+  deleteMaterial,
+  editMaterial,
+  editTask,
+} from "@/actions/actions";
 import {
   Table,
   TableHeader,
@@ -10,9 +15,25 @@ import {
   TableRow,
   TableCell,
 } from "./ui/table";
-
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogHeader,
+  AlertDialogFooter,
+} from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 import TaskDialog from "./TaskDialog";
 import MaterialDialog from "./MaterialDialog";
+import { useActionState } from "react";
+import { Button } from "./ui/button";
+
+const initialState = {
+  message: "",
+};
 
 export default function TaskPage({
   name,
@@ -25,6 +46,11 @@ export default function TaskPage({
   tasksArray: (typeof tasks.$inferSelect)[];
   materialsArray: (typeof materials.$inferSelect)[];
 }) {
+  const [state, formAction, pending] = useActionState(
+    deleteMaterial,
+    initialState
+  );
+
   return (
     <section className="w-full min-h-screen pt-8 md:p-8 flex flex-col gap-16">
       <div>
@@ -72,6 +98,45 @@ export default function TaskPage({
                         editAction={editMaterial}
                         material={material}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger className="cursor-pointer">
+                          <Trash2 color="red" size={20} />
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this material.
+                              This action is irreversible
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <form action={formAction}>
+                              <input
+                                type="hidden"
+                                name="materialId"
+                                value={material.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="taskId"
+                                value={task.id}
+                              />
+                              <Button
+                                variant="destructive"
+                                pending={pending}
+                                type="submit"
+                                className="w-full"
+                              >
+                                Delete
+                              </Button>
+                            </form>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 );

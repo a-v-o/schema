@@ -1,6 +1,6 @@
 "use client";
 
-import { createTask, editProject } from "@/actions/actions";
+import { createTask, deleteTask, editProject } from "@/actions/actions";
 import { Button } from "@/components/ui/button";
 import { projects, tasks } from "@/db/schema";
 import Link from "next/link";
@@ -16,6 +16,21 @@ import {
 import ProjectDialog from "./ProjectDialog";
 import TaskDialog from "./TaskDialog";
 import GanttChart from "./Gantt";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
+import { AlertDialogHeader, AlertDialogFooter } from "./ui/alert-dialog";
+import { useActionState } from "react";
+
+const initialState = {
+  message: "",
+};
 
 export type GanttTask = {
   id: string;
@@ -39,6 +54,7 @@ export default function ProjectPage({
   tasksArray: (typeof tasks.$inferSelect)[];
   ganttData?: GanttTask[] | null;
 }) {
+  const [state, formAction, pending] = useActionState(deleteTask, initialState);
   return (
     <section className="w-full min-h-screen pt-8 md:p-8 flex flex-col gap-16">
       <div>
@@ -85,6 +101,47 @@ export default function ProjectPage({
                       >
                         View more
                       </Link>
+                    </TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger className="cursor-pointer">
+                          <Trash2 color="red" size={20} />
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this task.
+                              Deleting this task deletes all dependent tasks.
+                              Try changing the parent all dependent tasks before
+                              deleting this task. This action is irreversible
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <form action={formAction}>
+                              <input
+                                type="hidden"
+                                name="taskId"
+                                value={task.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="projectId"
+                                value={project.id}
+                              />
+                              <Button
+                                variant="destructive"
+                                pending={pending}
+                                type="submit"
+                                className="w-full"
+                              >
+                                Delete
+                              </Button>
+                            </form>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 );

@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { createSession, verifySession } from "@/utils/session";
 import * as z from "zod";
+import { revalidatePath } from "next/cache";
 
 export async function createProject(
   date: Date | undefined,
@@ -293,6 +294,59 @@ export async function editProject(
       await setStartDateRecursively(bufferTasks[0].id, project.startDate!);
     }
     redirect(`/project/${id}`);
+  }
+}
+
+export async function deleteProject(
+  prevState:
+    | {
+        message: string;
+      }
+    | undefined,
+  formdata: FormData
+) {
+  const id = Number(formdata.get("projectId"));
+  try {
+    await db.delete(projects).where(eq(projects.id, id));
+    revalidatePath("/");
+  } catch {
+    return { message: "Something went wrong" };
+  }
+}
+
+export async function deleteTask(
+  prevState:
+    | {
+        message: string;
+      }
+    | undefined,
+  formdata: FormData
+) {
+  const taskId = Number(formdata.get("taskId"));
+  const projectId = Number(formdata.get("projectId"));
+  try {
+    await db.delete(tasks).where(eq(tasks.id, taskId));
+    revalidatePath(`/project/${projectId}`);
+  } catch {
+    return { message: "Something went wrong" };
+  }
+}
+
+export async function deleteMaterial(
+  prevState:
+    | {
+        message: string;
+      }
+    | undefined,
+  formdata: FormData
+) {
+  const materialId = Number(formdata.get("materialId"));
+  const taskId = Number(formdata.get("taskId"));
+  try {
+    await db.delete(materials).where(eq(materials.id, materialId));
+    revalidatePath(`/task/${taskId}`);
+  } catch {
+    return { message: "Something went wrong" };
   }
 }
 
@@ -652,7 +706,6 @@ export async function editTask(
             .reduce((total, current) => {
               return (total || 0) + (current || 0);
             }, 0) - result[0].duration || 0;
-        console.log(totalDuration);
 
         if (
           projectDurationIsFixed &&
